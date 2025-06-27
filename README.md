@@ -21,6 +21,11 @@ None
 ## Repository Structure:
 /
 ├─ src/                   # C++ inference & I/O code
+├─ prototypes/            # Python training & prototyping scripts
+│   ├─ proof_of_concept.py # Full proof of concept script
+│   ├─ train.py            # Training script for neural mask generation
+│   ├─ notebooks/            # Jupyter notebooks for visualization
+│   └─ ...                # Other prototyping scripts
 ├─ include/               # Public headers
 ├─ models/                # Trained network weights (.pt, .onnx)
 ├─ data/                  # Sample videos & test inputs
