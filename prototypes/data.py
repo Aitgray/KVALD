@@ -1,16 +1,109 @@
-# This file will contain the sythetic video and mask generation logic
-
-# I'll generate a video with random noise confined within a sample brightness range (I can use a simple gaussian distribution). Then I'll add glare in.
-# I can track where I add the glare so I can determine what a perfect mask would look like. That way, I can provide really good feedback about what the mask should be.
-
-def generate_sample_video(id):
-    # according to the specifications I laid out, I'll create a piece of sample data.
-    # id will be a sequential identifier for the video generated. I'll use this id both as a seed for any randomness, and for the name of the video
-        # I can use either pytorch or numpy to create the seed
+import numpy as np
+import cv2
+import os
+from typing import Dict, Tuple, List
 
 
-    # I'll create both a video and an "optimal" mask, both of which will have the same id
-    # I may need to create a mask object or datatype.
+def create_glare(H: int, W: int, center: Tuple[int, int], sigma: float) -> np.ndarray:
+    """2D Gaussian spot of shape (H, W), normalized to [0,1]."""
+    y = np.arange(H)[:, None]
+    x = np.arange(W)[None, :]
+    cy, cx = center
+    g = np.exp(-(((y - cy) ** 2 + (x - cx) ** 2) / (2 * sigma ** 2)))
+    return g / g.max()
 
-    # True if no issues while generating, else false.
-    return True
+
+def static_glare(
+    background: np.ndarray,
+    rng: np.random.RandomState,
+    intensity: float,
+    sigma: int
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Apply a static Gaussian glare at a random position.
+    """
+    T, H, W = background.shape
+    cy = rng.randint(sigma, H - sigma)
+    cx = rng.randint(sigma, W - sigma)
+    spot = create_glare(H, W, (cy, cx), sigma)
+    mask = np.tile(spot, (T, 1, 1)).astype(np.float32)
+    video = np.clip(background + intensity * mask, 0, 1)
+    return video, mask
+
+
+def pulsing_glare(
+    background: np.ndarray,
+    rng: np.random.RandomState,
+    intensity: float,
+    sigma: int
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Apply a pulsing Gaussian glare at a random position with random period.
+    """
+    T, H, W = background.shape
+    cy = rng.randint(sigma, H - sigma)
+    cx = rng.randint(sigma, W - sigma)
+    spot = create_glare(H, W, (cy, cx), sigma)
+    period = rng.randint(20, 60)
+    mask = np.zeros_like(background)
+    for t in range(T):
+        alpha = 0.5 * (1 + np.sin(2 * np.pi * t / period))
+        mask[t] = spot * alpha
+    video = np.clip(background + intensity * mask, 0, 1)
+    return video, mask.astype(np.float32)
+
+
+def traveling_glare(
+    background: np.ndarray,
+    rng: np.random.RandomState,
+    intensity: float,
+    sigma: int
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Apply a traveling Gaussian glare moving linearly between random start/end points.
+    """
+    T, H, W = background.shape
+    start = (rng.randint(sigma, H - sigma), rng.randint(sigma, W - sigma))
+    end = (rng.randint(sigma, H - sigma), rng.randint(sigma, W - sigma))
+    mask = np.zeros_like(background)
+    video = np.zeros_like(background)
+    for t in range(T):
+        frac = t / float(T - 1)
+        cy = int(start[0] + frac * (end[0] - start[0]))
+        cx = int(start[1] + frac * (end[1] - start[1]))
+        spot = create_glare(H, W, (cy, cx), sigma)
+        mask[t] = spot
+        video[t] = np.clip(background[t] + intensity * spot, 0, 1)
+    return video, mask.astype(np.float32)
+
+
+def generate_sample_videos(
+    seed: int,
+    T: int = 150,
+    H: int = 128,
+    W: int = 128,
+    mean: float = 0.5,
+    std: float = 0.1
+) -> Tuple[Dict[str, np.ndarray], Dict[str, np.ndarray]]:
+    """
+    Generate one random glare style over a Gaussian background.
+
+    Returns:
+      videos: single-key dict {style: (T,H,W) float32 in [0,1]}
+      masks:  single-key dict {style: (T,H,W) float32 ground-truth}
+    """
+    rng = np.random.RandomState(seed)
+    background = rng.normal(loc=mean, scale=std, size=(T, H, W)).astype(np.float32)
+    background = np.clip(background, 0.0, 1.0)
+
+    glare_funcs = { # can add more if necessary
+        'static': static_glare,
+        'pulsing': pulsing_glare,
+        'traveling': traveling_glare,
+    }
+    style = rng.choice(list(glare_funcs.keys()))
+    intensity = float(rng.uniform(0.5, 1.0))
+    sigma = int(rng.uniform(5, 20))
+
+    video, mask = glare_funcs[style](background, rng, intensity, sigma)
+    return {style: video}, {style: mask}
