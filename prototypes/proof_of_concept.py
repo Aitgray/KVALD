@@ -6,17 +6,9 @@ def video_processing(path):
     # For now this will just have a path to some kind of video file
 
     '''
-    Initial processing steps:
-        First and foremost, we'll need to check the file type to determine if it's a format we want it in. I'm not sure what format would be optimal. If it's not in our optimal format, we convert it if we can.
-
-        The videos shouldn't have audio but if they do, we can immediately dump that data as it doesn't provide any value.
-        
-        Start by converting it to grayscale or something similar, I don't know how to extract the brightness from each frame but I can figure that out later. Along with the conversion to grayscale.
-
-        Whatever resolution it is, we'll probably want to scale it down. We don't want to drop it too low because we don't want to lose detail, we'll want to ensure that we keep the hotspots when we scale down.
-        I suspect that we can drop things to at least 720p, perhaps even 480p
-
-        I'm not sure if there's any other processing steps I'll need to take.
+    Processing steps:
+        Take in a video and convert it to a single-key dict {style: (T,H,W) float32 in [0,1]}
+        Not sure how converting it to grayscale will work but that's fine for now.
     '''
 
     # This will return the processed version of the video, which is fine for this prototype. Eventually it'll take a video input and break it into frames in order to generate the mask.
