@@ -1,0 +1,10 @@
+{
+    "train": {
+        "batch_size": 1,
+        "num_epochs": 50,
+        "learning_rate": 0.001
+    },
+    "other":{
+        "placeholder": 10
+    }
+}

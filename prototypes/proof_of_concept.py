@@ -67,12 +67,13 @@ def run_proof_of_concept(video_path):
     mask = generate_mask(processed_video)
     
     # Step 3: Verify feedback: measure our output based on our heuristics, ensure the validity of the mask and the model.
-    verified_feedback = verify_feedback(mask)
+    accuracy = verify_feedback(mask)
     
     # Step 4: Finalize output: if we need to make adjustments to the mask based off the verified feedback, we'll perform them here.
     # Perhaps we check some kind of accuracy metric, if it's below a certain threshold we send it into the function
     if accuracy < 0.95: # accuracy is currently a placeholder
-        finalized_output = finalize_output(verified_feedback)
+        # There's some issue with the mask so we'll need to make some modifications.
+        pass
     else:
         finalized_output = mask
     
