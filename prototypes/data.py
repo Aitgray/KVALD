@@ -1,10 +1,20 @@
+'''
+A few key notes:
+    I can use this as initial training data to start the model when I write it in C++, but I'm going to need some real data to actually train the model.
+    I'll compile a text document full of driving footage, then I'll use a Python script to get the videos and plug them into the model.
+    Initially I'll be using supervised learning, but this secondary step will be unsupervised so I'll need to figure out proper heuristics for the model.
+'''
+
 import numpy as np
-import cv2
-import os
-from typing import Dict, Tuple, List
+from typing import Dict, Tuple
 
 
-def create_glare(H: int, W: int, center: Tuple[int, int], sigma: float) -> np.ndarray:
+def create_glare(
+        H: int, 
+        W: int, 
+        center: Tuple[int, int], 
+        sigma: float
+) -> np.ndarray:
     """2D Gaussian spot of shape (H, W), normalized to [0,1]."""
     y = np.arange(H)[:, None]
     x = np.arange(W)[None, :]
@@ -12,16 +22,14 @@ def create_glare(H: int, W: int, center: Tuple[int, int], sigma: float) -> np.nd
     g = np.exp(-(((y - cy) ** 2 + (x - cx) ** 2) / (2 * sigma ** 2)))
     return g / g.max()
 
-
+# Apply a static Gaussian glare at a random position.
 def static_glare(
     background: np.ndarray,
     rng: np.random.RandomState,
     intensity: float,
     sigma: int
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Apply a static Gaussian glare at a random position.
-    """
+    
     T, H, W = background.shape
     cy = rng.randint(sigma, H - sigma)
     cx = rng.randint(sigma, W - sigma)
@@ -30,16 +38,14 @@ def static_glare(
     video = np.clip(background + intensity * mask, 0, 1)
     return video, mask
 
-
+# Apply a pulsing Gaussian glare at a random position with random period.
 def pulsing_glare(
     background: np.ndarray,
     rng: np.random.RandomState,
     intensity: float,
     sigma: int
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Apply a pulsing Gaussian glare at a random position with random period.
-    """
+    
     T, H, W = background.shape
     cy = rng.randint(sigma, H - sigma)
     cx = rng.randint(sigma, W - sigma)
@@ -52,16 +58,14 @@ def pulsing_glare(
     video = np.clip(background + intensity * mask, 0, 1)
     return video, mask.astype(np.float32)
 
-
+# Apply a traveling Gaussian glare moving linearly between random start/end points.
 def traveling_glare(
     background: np.ndarray,
     rng: np.random.RandomState,
     intensity: float,
     sigma: int
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Apply a traveling Gaussian glare moving linearly between random start/end points.
-    """
+
     T, H, W = background.shape
     start = (rng.randint(sigma, H - sigma), rng.randint(sigma, W - sigma))
     end = (rng.randint(sigma, H - sigma), rng.randint(sigma, W - sigma))
@@ -76,7 +80,7 @@ def traveling_glare(
         video[t] = np.clip(background[t] + intensity * spot, 0, 1)
     return video, mask.astype(np.float32)
 
-
+# Generate one random glare style over a Gaussian background.
 def generate_sample_videos(
     seed: int,
     T: int = 150,
@@ -86,11 +90,9 @@ def generate_sample_videos(
     std: float = 0.1
 ) -> Tuple[Dict[str, np.ndarray], Dict[str, np.ndarray]]:
     """
-    Generate one random glare style over a Gaussian background.
-
     Returns:
-      videos: single-key dict {style: (T,H,W) float32 in [0,1]}
-      masks:  single-key dict {style: (T,H,W) float32 ground-truth}
+      video: single-key dict {style: (T,H,W) float32 in [0,1]}
+      mask:  single-key dict {style: (T,H,W) float32 ground-truth}
     """
     rng = np.random.RandomState(seed)
     background = rng.normal(loc=mean, scale=std, size=(T, H, W)).astype(np.float32)
