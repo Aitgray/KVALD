@@ -4,7 +4,12 @@
         "num_epochs": 50,
         "learning_rate": 0.001
     },
-    "other":{
-        "placeholder": 10
+    "smoothing": {
+        "kernel_size": [5, 5],
+        "sigma": 1.0
+    },
+    "kalman_filter": {
+        "Q": 1e-5,
+        "R": 1e-2
     }
 }
