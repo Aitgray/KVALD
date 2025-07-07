@@ -1,8 +1,41 @@
 # Full proof of concept script
 # Imports
+import cv2
+import numpy as np
+import json
+from kalman_filter import MaskKalmanFilter
+import argparse
+
+# This will eventually need to be replaced, streaming the video frames directly into the neural network will be more efficient
+# and less memory intensive.
+def extract_frames(path):
+    cap = cv2.VideoCapture(path)
+    if not cap.isOpened():
+        raise IOError("Cannot open video file") # Temp, I'll figure out a more accurate error later on.
+
+    frames = []
+    while True: # Better way to do this?
+        ret, frame = cap.read() # pull frames one by one until 
+        if not ret: # If no successful read
+            break
+
+        # Conversion to grayscale
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        gray = gray.astype(np.float32) / 255.0 # would maintaining the type be better for better accuracy or is compressing it better for feeding into the nn?
+        frames.append(gray)
+
+    cap.release()
+
+    if not frames:
+        raise ValueError("No frames read")
+    
+    # stack into shape
+    video_tensor = np.stack(frames, axis=0)
+    return video_tensor
 
 # Initial function
-def video_processing(path):
+# I'll add multithreading later on, so that we can extract the frames and process them concurrently.
+def video_processing(path: str, id: str) -> None:
     # For now this will just have a path to some kind of video file
 
     '''
@@ -10,12 +43,51 @@ def video_processing(path):
         Take in a video and convert it to a single-key dict {style: (T,H,W) float32 in [0,1]}
         Not sure how converting it to grayscale will work but that's fine for now.
     '''
+    # Extract the config parameters
+    with open('config.json', 'r') as f:
+        config = json.load(f)
 
-    # This will return the processed version of the video, which is fine for this prototype. Eventually it'll take a video input and break it into frames in order to generate the mask.
-    pass
+    ksize = tuple(config['smoothing']['kernel_size'])
+    sigma = config['smoothing']['sigma']
+
+    # Kalman filter
+    kf = MaskKalmanFilter(shape=mask.shape)
+
+
+    # Extract the frames:
+    video_tensor = extract_frames(path)
+
+    # Now that we have the frames, for the entire video in our dict, we'll start pumping them into the neural net
+    mask_frames = []
+    final_frames = []
+
+    for frame in video_tensor:
+        mask = generate_mask(frame)
+        mask = smooth_output(mask, ksize, sigma)
+
+        filtered = kf.update(mask)
+
+        """
+        # Do our verification step here, this is a temporary placeholder
+        how_good = verify_feedback(filtered)
+        
+        if how_good is not good:
+            raise ValueError("Generated mask is flawed or not suitable for processing")
+        """
+
+        # Now send the filtered mask out to our output function, along with the original frame for combination.
+        mask_frames.append(filtered)
+        final_frames.append(finalize_output(frame, filtered))
+
+    mask_array = np.stack(mask_frames, axis=0)
+    final_array = np.stack(final_frames, axis=0)
+    
+    frames_to_vid(mask_array, id + "_mask.mp4")
+    frames_to_vid(final_array, id + "_final.mp4")
+    return None
 
 # Mask generation function
-def generate_mask(video):
+def generate_mask(frame):
     # This function will take the processed video and generate a mask
     # Start by breaking the video into frames and processing each individually.
     
@@ -23,56 +95,51 @@ def generate_mask(video):
     # We'll then send each frame of the mask onto the next few functions. First we'll send it to the kalman filter and then we'll smooth it after it's done processing
     return "dummy_mask"
 
-# Kalman filter application function
-def apply_kalman_filter(video, mask): # I need to do more research to understand this. I think it may be unnecessary.
-    # This function will apply the Kalman filter to the video using the generated mask
-
-    return "kalman_output"
-
-# Smoothing function
-def smooth_output(kalman_output):
-    # This function will smooth the mask that we have
-    # The intention of this smoothing is to take a wider view, saving a few of the previous frames that we've interpreted and ensuring that our mask isn't flickering or jagged.
-    # If we want to use this for driving, we must ensure that it's not a hinderance, that it improves visual clarity as opposed to harming it.
-
-    return "smoothed_output"
+# Smoothing function, makes the code more readable
+def smooth_output(mask, ksize, sigma):    
+    return cv2.GaussianBlur(mask, ksize, sigma)
 
 # Feedback verification function
 def verify_feedback(smoothed_output):
     # This function will verify the feedback from the smoothed output
     # This is kinda just a sanity check, is the processed mask that we've output good according to our heuristics?
+    # Not sure how to achieve this for now
 
-    return "feedback_verified"
+    pass
 
 # Finalized output function
-def finalize_output(verified_feedback):
-    # This function will finalize the output based on the verified feedback
-
+def finalize_output(frame, mask):
+    # This function will layer the mask onto the frame
     return "finalized_output"
 
-# Main function to run the proof of concept
-def run_proof_of_concept(video_path):
-    # Step 1: Process the video
-    processed_video = video_processing(video_path)
-    
-    # Step 2: Generate a mask
-    mask = generate_mask(processed_video)
-    
-    # Step 3: Verify feedback: measure our output based on our heuristics, ensure the validity of the mask and the model.
-    accuracy = verify_feedback(mask)
-    
-    # Step 4: Finalize output: if we need to make adjustments to the mask based off the verified feedback, we'll perform them here.
-    # Perhaps we check some kind of accuracy metric, if it's below a certain threshold we send it into the function
-    if accuracy < 0.95: # accuracy is currently a placeholder
-        # There's some issue with the mask so we'll need to make some modifications.
-        pass
-    else:
-        finalized_output = mask
-    
-    # Output the mask applied to the video so I can visually confirm it works
-    # Print any useful extraneous data/statistics
-    # Print the amount of time it took in total, for each frame on average, as well as outlier frames.
-    # I can use a box plot to see the fastest frame time, as well as the slowest.
-    # If I use multiple threads, I can check to see the active time of each, this way I can determine thread allocation (do certain processes require more/less threads than others).
+# Converts our frames back into a video
+def frames_to_vid(frames, id) -> None:
+    # recombine all of the frames 
+    T, H, W = frames.shape
 
-    return 1
+    fps = 30.0 # can change
+    codec: str = 'mp4v'
+
+    fourcc = cv2.VideoWriter_fourcc(*codec)
+    
+    writer = cv2.VideoWriter(id, fourcc, fps, (W, H), isColor=False)
+    if not writer.isOpened():
+        raise IOError
+    
+    for t in range(T):
+        img = (np.clip(frames[t], 0.0, 1.0) *255).astype(np.uint8)
+        writer.write(img)
+
+    writer.release()
+    return
+
+# Main function to run the code
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Process a video file")
+    parser.add_argument("video_path", type=str, help="Path to the input video file")
+    args = parser.parse_args()
+
+    video_path = args.video_path
+    id = video_path.split('/')[-1].split('.')[0]  # Extracting the video ID from the path
+
+    video_processing(video_path, id)
