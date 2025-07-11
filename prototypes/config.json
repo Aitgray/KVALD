@@ -1,8 +1,10 @@
 {
     "train": {
+        "n_videos": 100,
         "batch_size": 1,
         "num_epochs": 50,
-        "learning_rate": 0.001
+        "learning_rate": 0.001,
+        "device": "cuda"
     },
     "smoothing": {
         "kernel_size": [5, 5],
