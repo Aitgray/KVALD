@@ -5,6 +5,7 @@ import numpy as np
 import json
 from kalman_filter import MaskKalmanFilter
 import argparse
+import torch
 
 # This will eventually need to be replaced, streaming the video frames directly into the neural network will be more efficient
 # and less memory intensive.
@@ -50,14 +51,11 @@ def video_processing(path: str, id: str) -> None:
     ksize = tuple(config['smoothing']['kernel_size'])
     sigma = config['smoothing']['sigma']
 
-    # Kalman filter
-    kf = MaskKalmanFilter(shape=mask.shape)
-
-
-    # Extract the frames:
+    # Extract the frames and generate the first mask for the kf
     video_tensor = extract_frames(path)
+    first_mask = generate_mask(video_tensor[0])
+    kf = MaskKalmanFilter(shape=first_mask.shape)
 
-    # Now that we have the frames, for the entire video in our dict, we'll start pumping them into the neural net
     mask_frames = []
     final_frames = []
 
@@ -87,13 +85,11 @@ def video_processing(path: str, id: str) -> None:
     return None
 
 # Mask generation function
-def generate_mask(frame):
-    # This function will take the processed video and generate a mask
-    # Start by breaking the video into frames and processing each individually.
-    
-    # We'll do this by feeding each frame into the neural network, and it'll generate a mask for each individual frame.
-    # We'll then send each frame of the mask onto the next few functions. First we'll send it to the kalman filter and then we'll smooth it after it's done processing
-    return "dummy_mask"
+def generate_mask(frame: np.ndarray) -> np.ndarray:
+    inp = torch.from_numpy(frame[None, ...]).to(device='cuda')  # Assuming the model is on GPU
+    with torch.no_grad():
+        out = model(inp).cpu().squeeze().numpy()  # Get the output from the model
+    return out
 
 # Smoothing function, makes the code more readable
 def smooth_output(mask, ksize, sigma):    

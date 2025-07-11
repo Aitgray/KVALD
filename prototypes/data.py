@@ -7,7 +7,28 @@ A few key notes:
 
 import numpy as np
 from typing import Dict, Tuple
+from torch.utils.data import Dataset
+from data import generate_sample_videos
 
+class GlareDataset(Dataset):
+    def __init__(self, n_videos, transform=None):
+        self.samples = []
+        for seed in range(n_videos):
+            video_dict, mask_dict = generate_sample_videos(seed)
+            style = next(iter(video_dict))
+            video = video_dict[style]  # (T,H,W)
+            mask  = mask_dict[style]
+            for t in range(video.shape[0]):
+                self.samples.append((video[t], mask[t]))
+        self.transform = transform
+
+    def __len__(self): return len(self.samples)
+    def __getitem__(self, idx):
+        frame, mask = self.samples[idx]
+        if self.transform:
+            frame = self.transform(frame)
+            mask  = self.transform(mask)
+        return frame[None,...], mask[None,...]  # shape (1,H,W), (1,H,W)
 
 def create_glare(
         H: int, 
