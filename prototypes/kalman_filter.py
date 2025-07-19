@@ -1,13 +1,9 @@
-import json
 import numpy as np
 
 class MaskKalmanFilter:
-    def __init__(self, shape: tuple):
-        with open('config.json', 'r') as f:
-            config = json.load(f)
-
-        self.Q = config['kalman_filter']['Q']
-        self.R = config['kalman_filter']['R']
+    def __init__(self, shape: tuple, q_val: float, r_val: float):
+        self.Q = q_val
+        self.R = r_val
         self.state = np.zeros(shape, dtype=np.float32)
         self.covariance = np.ones(shape, dtype=np.float32)
 

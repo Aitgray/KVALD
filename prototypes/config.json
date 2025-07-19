@@ -4,7 +4,7 @@
         "batch_size": 1,
         "num_epochs": 50,
         "learning_rate": 0.001,
-        "device": "cuda"
+        "device": "cpu"
     },
     "smoothing": {
         "kernel_size": [5, 5],
@@ -13,5 +13,12 @@
     "kalman_filter": {
         "Q": 1e-5,
         "R": 1e-2
+    },
+    "unsupervised": {
+        "loss_weight": 0.2
+    },
+    "verification": {
+        "iou_threshold": 0.8,
+        "dice_threshold": 0.8
     }
 }

@@ -3,10 +3,12 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, random_split
 from tqdm import tqdm
-from torchmetrics import JaccardIndex, Dice
 
-from data import GlareDataset
 
+from synthetic_data import GlareDataset
+
+import os
+import os
 import json
 
 from model import UNet             # your CNN definition
@@ -31,6 +33,15 @@ def unsupervised_evaluate(pred_mask: torch.Tensor, video: torch.Tensor) -> torch
     loss_std = torch.relu(std_after - std_before)
     return loss_avg + loss_std
 
+def iou_score(pred, target):
+    intersection = (pred * target).sum()
+    union = pred.sum() + target.sum() - intersection
+    return (intersection + 1e-6) / (union + 1e-6)
+
+def dice_score(pred, target):
+    intersection = (pred * target).sum()
+    return (2. * intersection + 1e-6) / (pred.sum() + target.sum() + 1e-6)
+
 def create_dataset(n_videos: int):
     return GlareDataset(n_videos=n_videos, transform=None)  # replace with your dataset class
 
@@ -40,6 +51,7 @@ def train_model(
     batch_size: int,
     lr: float,
     device: str,
+    loss_weight: float,
     val_split: float = 0.2,
 ):
     # Split into train/val
@@ -55,10 +67,6 @@ def train_model(
     criterion = nn.BCELoss()
     optimizer = optim.Adam(model.parameters(), lr=lr)
 
-    # Metrics
-    iou_metric  = JaccardIndex(num_classes=2).to(device)
-    dice_metric = Dice(num_classes=2).to(device)
-
     for epoch in range(1, epochs + 1):
         # — Training —
         model.train()
@@ -72,15 +80,15 @@ def train_model(
             optimizer.zero_grad()
             preds = model(frames)                # (B,1,H,W) with sigmoid
             loss_sup = criterion(preds, masks)
-            # loss_unsup = unsupervised_evaluate(preds, frames)
-            loss = loss_sup  # + 0.1 * loss_unsup
+            loss_unsup = unsupervised_evaluate(preds, frames)
+            loss = loss_sup + loss_weight * loss_unsup
 
             loss.backward()
             optimizer.step()
 
-            total_loss += loss_sup.item() * frames.size(0)
-            total_iou  += iou_metric((preds > 0.5).int(), masks.int()).item() * frames.size(0)
-            total_dice += dice_metric((preds > 0.5).int(), masks.int()).item() * frames.size(0)
+            total_loss += loss.item() * frames.size(0)
+            total_iou  += iou_score(preds, masks).item() * frames.size(0)
+            total_dice += dice_score(preds, masks).item() * frames.size(0)
 
         n_train = len(train_loader.dataset)
         print(f"Train ➤ Loss: {total_loss/n_train:.4f}, "
@@ -115,7 +123,9 @@ def train_model(
 
 if __name__ == "__main__":
     # Get config parameters
-    with open('config.json', 'r') as f:
+    current_dir = os.path.dirname(__file__)
+    config_full_path = os.path.join(current_dir, 'config.json')
+    with open(config_full_path, 'r') as f:
         config = json.load(f)
     
     n_videos   = config['train']['n_videos']
@@ -123,6 +133,7 @@ if __name__ == "__main__":
     batch_size = config['train']['batch_size']
     lr         = config['train']['learning_rate']
     device     = config['train']['device']
+    loss_weight = config['unsupervised']['loss_weight']
 
     dataset = create_dataset(n_videos)
-    train_model(dataset, epochs, batch_size, lr, device)
+    train_model(dataset, epochs, batch_size, lr, device, loss_weight)

@@ -8,7 +8,7 @@ A few key notes:
 import numpy as np
 from typing import Dict, Tuple
 from torch.utils.data import Dataset
-from data import generate_sample_videos
+
 
 class GlareDataset(Dataset):
     def __init__(self, n_videos, transform=None):
