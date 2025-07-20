@@ -1,0 +1,46 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "C:/Users/aidan/Desktop/Projects/KVALD/build/_deps/googletest-subbuild/CMakeFiles/googletest-populate"
+		},
+		{
+			"file" : "C:/Users/aidan/Desktop/Projects/KVALD/build/_deps/googletest-subbuild/CMakeFiles/6ce1ef3d9ee3840e06a331afc2b23683/googletest-populate.rule"
+		},
+		{
+			"file" : "C:/Users/aidan/Desktop/Projects/KVALD/build/_deps/googletest-subbuild/CMakeFiles/3b93c460342c72f014140b44805a4d16/googletest-populate-complete.rule"
+		},
+		{
+			"file" : "C:/Users/aidan/Desktop/Projects/KVALD/build/_deps/googletest-subbuild/CMakeFiles/577e65519b391b1b7f0ced21d2db2e31/googletest-populate-build.rule"
+		},
+		{
+			"file" : "C:/Users/aidan/Desktop/Projects/KVALD/build/_deps/googletest-subbuild/CMakeFiles/577e65519b391b1b7f0ced21d2db2e31/googletest-populate-configure.rule"
+		},
+		{
+			"file" : "C:/Users/aidan/Desktop/Projects/KVALD/build/_deps/googletest-subbuild/CMakeFiles/577e65519b391b1b7f0ced21d2db2e31/googletest-populate-download.rule"
+		},
+		{
+			"file" : "C:/Users/aidan/Desktop/Projects/KVALD/build/_deps/googletest-subbuild/CMakeFiles/577e65519b391b1b7f0ced21d2db2e31/googletest-populate-install.rule"
+		},
+		{
+			"file" : "C:/Users/aidan/Desktop/Projects/KVALD/build/_deps/googletest-subbuild/CMakeFiles/577e65519b391b1b7f0ced21d2db2e31/googletest-populate-mkdir.rule"
+		},
+		{
+			"file" : "C:/Users/aidan/Desktop/Projects/KVALD/build/_deps/googletest-subbuild/CMakeFiles/577e65519b391b1b7f0ced21d2db2e31/googletest-populate-patch.rule"
+		},
+		{
+			"file" : "C:/Users/aidan/Desktop/Projects/KVALD/build/_deps/googletest-subbuild/CMakeFiles/577e65519b391b1b7f0ced21d2db2e31/googletest-populate-test.rule"
+		},
+		{
+			"file" : "C:/Users/aidan/Desktop/Projects/KVALD/build/_deps/googletest-subbuild/CMakeFiles/577e65519b391b1b7f0ced21d2db2e31/googletest-populate-update.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"googletest-populate"
+		],
+		"name" : "googletest-populate"
+	}
+}

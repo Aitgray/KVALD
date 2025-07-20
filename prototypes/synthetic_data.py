@@ -124,9 +124,32 @@ def generate_sample_videos(
         'pulsing': pulsing_glare,
         'traveling': traveling_glare,
     }
-    style = rng.choice(list(glare_funcs.keys()))
+    style = "pulsing" # For consistent testing
     intensity = float(rng.uniform(0.5, 1.0))
-    sigma = int(rng.uniform(5, 20))
+    sigma = int(rng.uniform(1, 5))
 
     video, mask = glare_funcs[style](background, rng, intensity, sigma)
     return {style: video}, {style: mask}
+
+if __name__ == '__main__':
+    import json
+    import os
+
+    # Create the data directory if it doesn't exist
+    data_dir = os.path.join(os.path.dirname(__file__), '..', 'data')
+    if not os.path.exists(data_dir):
+        os.makedirs(data_dir)
+
+    video_dict, mask_dict = generate_sample_videos(seed=0, T=10, H=16, W=16)
+    style = next(iter(video_dict))
+    video = video_dict[style]
+    mask = mask_dict[style]
+
+    data_to_serialize = {
+        'style': style,
+        'video': video.tolist(),
+        'mask': mask.tolist()
+    }
+
+    with open(os.path.join(data_dir, 'synthetic_data.json'), 'w') as f:
+        json.dump(data_to_serialize, f, indent=4)
