@@ -3,11 +3,11 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, random_split
 from tqdm import tqdm
-
+import csv
+import matplotlib.pyplot as plt
 
 from synthetic_data import GlareDataset
 
-import os
 import os
 import json
 
@@ -67,6 +67,14 @@ def train_model(
     criterion = nn.BCELoss()
     optimizer = optim.Adam(model.parameters(), lr=lr)
 
+    # Lists to store metrics for plotting
+    train_losses = []
+    train_ious = []
+    train_dices = []
+    val_losses = []
+    val_ious = []
+    val_dices = []
+
     for epoch in range(1, epochs + 1):
         # — Training —
         model.train()
@@ -90,9 +98,15 @@ def train_model(
             total_iou  += iou_score(preds, masks).item() * frames.size(0)
             total_dice += dice_score(preds, masks).item() * frames.size(0)
 
-        n_train = len(train_loader.dataset)
-        print(f"Train -> Loss: {total_loss/n_train:.4f}, "
-              f"IoU: {total_iou/n_train:.4f}, Dice: {total_dice/n_train:.4f}")
+        avg_train_loss = total_loss / n_train
+        avg_train_iou = total_iou / n_train
+        avg_train_dice = total_dice / n_train
+        train_losses.append(avg_train_loss)
+        train_ious.append(avg_train_iou)
+        train_dices.append(avg_train_dice)
+
+        print(f"Train -> Loss: {avg_train_loss:.4f}, "
+              f"IoU: {avg_train_iou:.4f}, Dice: {avg_train_dice:.4f}")
 
         # — Validation —
         model.eval()
@@ -111,10 +125,69 @@ def train_model(
                 val_iou  += iou_score((preds > 0.5).int(), masks.int()).item() * frames.size(0)
                 val_dice += dice_score((preds > 0.5).int(), masks.int()).item() * frames.size(0)
 
-        n_val = len(val_loader.dataset)
-        print(f" Val -> Loss: {val_loss/n_val:.4f}, ")
-        print(f" Val -> Loss: {val_loss/n_val:.4f}, "
-              f"IoU: {val_iou/n_val:.4f}, Dice: {val_dice/n_val:.4f}")
+        avg_val_loss = val_loss / n_val
+        avg_val_iou = val_iou / n_val
+        avg_val_dice = val_dice / n_val
+        val_losses.append(avg_val_loss)
+        val_ious.append(avg_val_iou)
+        val_dices.append(avg_val_dice)
+
+        print(f" Val -> Loss: {avg_val_loss:.4f}, "
+              f"IoU: {avg_val_iou:.4f}, Dice: {avg_val_dice:.4f}")
+    
+    # Save metrics to CSV
+    metrics_path = os.path.join(os.path.dirname(__file__), 'training_metrics.csv')
+    with open(metrics_path, 'w', newline='') as csvfile:
+        fieldnames = ['Epoch', 'Train Loss', 'Train IoU', 'Train Dice', 'Val Loss', 'Val IoU', 'Val Dice']
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+
+        writer.writeheader()
+        for i in range(epochs):
+            writer.writerow({
+                'Epoch': i + 1,
+                'Train Loss': train_losses[i],
+                'Train IoU': train_ious[i],
+                'Train Dice': train_dices[i],
+                'Val Loss': val_losses[i],
+                'Val IoU': val_ious[i],
+                'Val Dice': val_dices[i]
+            })
+    print(f"Training metrics saved to {metrics_path}")
+
+    # Plotting
+    epochs_range = range(1, epochs + 1)
+
+    plt.figure(figsize=(12, 5))
+
+    plt.subplot(1, 3, 1)
+    plt.plot(epochs_range, train_losses, label='Train Loss')
+    plt.plot(epochs_range, val_losses, label='Val Loss')
+    plt.title('Loss over Epochs')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.legend()
+
+    plt.subplot(1, 3, 2)
+    plt.plot(epochs_range, train_ious, label='Train IoU')
+    plt.plot(epochs_range, val_ious, label='Val IoU')
+    plt.title('IoU over Epochs')
+    plt.xlabel('Epoch')
+    plt.ylabel('IoU')
+    plt.legend()
+
+    plt.subplot(1, 3, 3)
+    plt.plot(epochs_range, train_dices, label='Train Dice')
+    plt.plot(epochs_range, val_dices, label='Val Dice')
+    plt.title('Dice Score over Epochs')
+    plt.xlabel('Epoch')
+    plt.ylabel('Dice Score')
+    plt.legend()
+
+    plt.tight_layout()
+    plot_path = os.path.join(os.path.dirname(__file__), 'training_metrics_plot.png')
+    plt.savefig(plot_path)
+    print(f"Training metrics plot saved to {plot_path}")
+
     # Save checkpoint
     torch.save(model.state_dict(), "kvald_unet.pth")
     print("Training complete. Model saved to kvald_unet.pth")
