@@ -91,9 +91,8 @@ def train_model(
             total_dice += dice_score(preds, masks).item() * frames.size(0)
 
         n_train = len(train_loader.dataset)
-        print(f"Train ➤ Loss: {total_loss/n_train:.4f}, "
+        print(f"Train -> Loss: {total_loss/n_train:.4f}, "
               f"IoU: {total_iou/n_train:.4f}, Dice: {total_dice/n_train:.4f}")
-        iou_metric.reset(); dice_metric.reset()
 
         # — Validation —
         model.eval()
@@ -109,14 +108,13 @@ def train_model(
                 loss_sup = criterion(preds, masks)
 
                 val_loss += loss_sup.item() * frames.size(0)
-                val_iou  += iou_metric((preds > 0.5).int(), masks.int()).item() * frames.size(0)
-                val_dice += dice_metric((preds > 0.5).int(), masks.int()).item() * frames.size(0)
+                val_iou  += iou_score((preds > 0.5).int(), masks.int()).item() * frames.size(0)
+                val_dice += dice_score((preds > 0.5).int(), masks.int()).item() * frames.size(0)
 
         n_val = len(val_loader.dataset)
-        print(f" Val ➤ Loss: {val_loss/n_val:.4f}, "
+        print(f" Val -> Loss: {val_loss/n_val:.4f}, ")
+        print(f" Val -> Loss: {val_loss/n_val:.4f}, "
               f"IoU: {val_iou/n_val:.4f}, Dice: {val_dice/n_val:.4f}")
-        iou_metric.reset(); dice_metric.reset()
-
     # Save checkpoint
     torch.save(model.state_dict(), "kvald_unet.pth")
     print("Training complete. Model saved to kvald_unet.pth")
@@ -132,7 +130,8 @@ if __name__ == "__main__":
     epochs     = config['train']['num_epochs']
     batch_size = config['train']['batch_size']
     lr         = config['train']['learning_rate']
-    device     = config['train']['device']
+    device     = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
     loss_weight = config['unsupervised']['loss_weight']
 
     dataset = create_dataset(n_videos)

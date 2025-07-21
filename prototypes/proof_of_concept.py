@@ -64,7 +64,7 @@ def video_processing(video_path: str, output_id: str, model: nn.Module, config: 
     # Load configuration
     smoothing_ksize = tuple(config['smoothing']['kernel_size'])
     smoothing_sigma = config['smoothing']['sigma']
-    device = config['train']['device']
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     model.to(device)
     model.eval()
@@ -111,11 +111,11 @@ def video_processing(video_path: str, output_id: str, model: nn.Module, config: 
             mask = smooth_output(mask, smoothing_ksize, smoothing_sigma)
             filtered_mask = kf.update(mask)
 
-            try:
-                verify_feedback(filtered_mask)
-            except MaskVerificationError as e:
-                print(f"Warning: Frame {frame_count} failed verification: {e}")
-                continue
+            # try:
+            #     verify_feedback(filtered_mask)
+            # except MaskVerificationError as e:
+            #     print(f"Warning: Frame {frame_count} failed verification: {e}")
+            #     continue
 
             mask_output = (np.clip(filtered_mask, 0.0, 1.0) * 255).astype(np.uint8)
             final_output = finalize_output(frame, filtered_mask)

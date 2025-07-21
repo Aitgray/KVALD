@@ -6,6 +6,19 @@ I want to write a general overview of my current plans for the project.
 ## Overview
 KVALD is a real time system for detecting and dimming high-intensity reigons in a video stream (e.g., bright headlights at night). It uses a lightweight neural network to generate a dynamic brightness mask, applies a differentiable Kalman-based smoothing filter, and outputs a control mask for localized dimming hardware.
 
+## Building
+
+To build the C++ code, you will need to have CMake and a C++ compiler installed. You will also need to have the LibTorch library installed.
+
+Once you have the dependencies installed, you can build the code by running the following commands from the `build` directory:
+
+```bash
+cmake -DTorch_DIR=<path_to_libtorch> ..
+cmake --build .
+```
+
+**Note:** You may need to replace `<path_to_libtorch>` with the actual path to your LibTorch installation. If you are still having issues, you may need to set the `CMAKE_MODULE_PATH` or `CMAKE_PREFIX_PATH` variables instead. Please refer to the CMake documentation for more information.
+
 ## Current Features:
 None
 
