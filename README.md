@@ -53,3 +53,6 @@ None
 ├─ README.md              # This file
 ├─ LICENSE                # None yet, may add in the future
 └─ .github/               # Again, none yet, may add in the future
+
+## Training Progress
+![Training Metrics Plot](prototypes/training_metrics_plot.png)
