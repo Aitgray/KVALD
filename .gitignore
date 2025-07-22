@@ -30,3 +30,20 @@
 *.exe
 *.out
 *.app
+
+# Build artifacts
+build/
+
+# Python cache files
+__pycache__/
+prototypes/__pycache__/
+
+# Model checkpoints
+*.pth
+prototypes/*.pth
+
+# Training logs
+prototypes/training_metrics.csv
+
+# IDE-specific configurations
+.vscode/

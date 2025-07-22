@@ -1,56 +1,61 @@
 #include "kvald/data_loader.h"
+#include <torch/torch.h>
 #include <iostream>
 
-namespace kvald
-{
+namespace kvald {
 
-GlareDataset::GlareDataset(int n_videos)
-{
-    for (int seed = 0; seed < n_videos; ++seed)
-    {
+GlareDataset::GlareDataset(int n_videos) {
+    for (int seed = 0; seed < n_videos; ++seed) {
         auto sample_videos = generate_sample_videos(seed);
-        auto video_dict = sample_videos.first;
-        auto mask_dict = sample_videos.second;
+        auto& video_dict = sample_videos.first;
+        auto& mask_dict  = sample_videos.second;
 
-        // Assuming 'pulsing' style for now, as in synthetic_data.py
-        std::string style = "pulsing";
+        // Match whatever style you actually want
+        const std::string style = "pulsing";
         const auto& video_frames = video_dict.at(style);
-        const auto& mask_frames = mask_dict.at(style);
+        const auto& mask_frames  = mask_dict.at(style);
 
-        for (size_t t = 0; t < video_frames.size(); ++t)
-        {
-            // Convert Eigen::MatrixXf to torch::Tensor
-            // Eigen::MatrixXf is column-major by default, torch::Tensor is row-major.
-            // Need to transpose or handle strides carefully.
-            // For a 2D matrix, direct copy should work if dimensions are correct.
-            torch::Tensor frame_tensor = torch::from_blob(
-                video_frames[t].data(), 
-                {video_frames[t].rows(), video_frames[t].cols()}, 
+        for (size_t t = 0; t < video_frames.size(); ++t) {
+            const auto& vf = video_frames[t];
+            const auto& mf = mask_frames[t];
+
+            const int64_t rows = vf.rows();
+            const int64_t cols = vf.cols();
+
+            // Eigen::MatrixXf is column-major by default.
+            // Provide explicit strides so PyTorch interprets it correctly,
+            // then clone() to own the memory.
+            int64_t sizes[2]   = {rows, cols};
+            int64_t strides[2] = {1, rows}; // column-major
+
+            auto frame_tensor = torch::from_blob(
+                const_cast<float*>(vf.data()),
+                torch::IntArrayRef(sizes, 2),
+                torch::IntArrayRef(strides, 2),
                 torch::TensorOptions().dtype(torch::kFloat32)
-            ).clone(); // .clone() to make it owned data
+            ).clone(); // now row-major contiguous
 
-            torch::Tensor mask_tensor = torch::from_blob(
-                mask_frames[t].data(), 
-                {mask_frames[t].rows(), mask_frames[t].cols()}, 
+            auto mask_tensor = torch::from_blob(
+                const_cast<float*>(mf.data()),
+                torch::IntArrayRef(sizes, 2),
+                torch::IntArrayRef(strides, 2),
                 torch::TensorOptions().dtype(torch::kFloat32)
             ).clone();
 
-            // Add a channel dimension (1, H, W)
+            // Add channel dimension (C,H,W)
             frame_tensor = frame_tensor.unsqueeze(0);
-            mask_tensor = mask_tensor.unsqueeze(0);
+            mask_tensor  = mask_tensor.unsqueeze(0);
 
             samples.push_back({frame_tensor, mask_tensor});
         }
     }
 }
 
-torch::data::Example<> GlareDataset::get(size_t index)
-{
+torch::data::Example<> GlareDataset::get(size_t index) {
     return {samples[index].first, samples[index].second};
 }
 
-torch::optional<size_t> GlareDataset::size() const
-{
+torch::optional<size_t> GlareDataset::size() const {
     return samples.size();
 }
 

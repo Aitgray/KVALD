@@ -1,132 +1,158 @@
 #include "kvald/trainer.h"
+#include "kvald/data_loader.h"
+#include "kvald/model.h"
+
+#include <torch/torch.h>
+#include <algorithm>
 #include <iostream>
 #include <numeric>
+#include <random>
+#include <vector>
 
-namespace kvald
-{
+namespace kvald {
 
-torch::Tensor supervised_evaluate(torch::Tensor pred_mask, torch::Tensor true_mask)
-{
+// ---- Implement the functions declared in trainer.h (exact same signatures) ----
+torch::Tensor supervised_evaluate(torch::Tensor pred_mask, torch::Tensor true_mask) {
     return torch::mean(torch::pow(pred_mask - true_mask, 2));
 }
 
-torch::Tensor unsupervised_evaluate(torch::Tensor pred_mask, torch::Tensor video)
-{
-    torch::Tensor avg_before = video.mean();
-    torch::Tensor std_before = video.std();
-    torch::Tensor masked_video = video * (1 - pred_mask);
-    torch::Tensor avg_after = masked_video.mean();
-    torch::Tensor std_after = masked_video.std();
+torch::Tensor unsupervised_evaluate(torch::Tensor pred_mask, torch::Tensor video) {
+    auto avg_before   = video.mean();
+    auto std_before   = video.std();
+    auto masked_video = video * (1 - pred_mask);
+    auto avg_after    = masked_video.mean();
+    auto std_after    = masked_video.std();
 
-    torch::Tensor loss_avg = torch::pow(avg_after - avg_before, 2);
-    torch::Tensor loss_std = torch::relu(std_after - std_before);
+    auto loss_avg = torch::pow(avg_after - avg_before, 2);
+    auto loss_std = torch::relu(std_after - std_before);
     return loss_avg + loss_std;
 }
 
-torch::Tensor iou_score(torch::Tensor pred, torch::Tensor target)
-{
-    torch::Tensor intersection = (pred * target).sum();
-    torch::Tensor union_val = pred.sum() + target.sum() - intersection;
+torch::Tensor iou_score(torch::Tensor pred, torch::Tensor target) {
+    auto intersection = (pred * target).sum();
+    auto union_val    = pred.sum() + target.sum() - intersection;
     return (intersection + 1e-6) / (union_val + 1e-6);
 }
 
-torch::Tensor dice_score(torch::Tensor pred, torch::Tensor target)
-{
-    torch::Tensor intersection = (pred * target).sum();
-    return (2. * intersection + 1e-6) / (pred.sum() + target.sum() + 1e-6);
+torch::Tensor dice_score(torch::Tensor pred, torch::Tensor target) {
+    auto intersection = (pred * target).sum();
+    return (2.0 * intersection + 1e-6) / (pred.sum() + target.sum() + 1e-6);
 }
 
-void train_model(
-    std::shared_ptr<GlareDataset>& dataset,
-    int epochs,
-    int batch_size,
-    float lr,
-    torch::Device device,
-    float loss_weight
-)
+// ---------------- Simple batching (avoid DataLoader template hell) -------------
+struct Batch {
+    torch::Tensor data;
+    torch::Tensor target;
+};
+
+static Batch make_batch(GlareDataset& ds,
+                        const std::vector<size_t>& idxs,
+                        torch::Device device) {
+    std::vector<torch::Tensor> datas, targets;
+    datas.reserve(idxs.size());
+    targets.reserve(idxs.size());
+    for (auto i : idxs) {
+        auto ex = ds.get(i);
+        datas.push_back(ex.data);
+        targets.push_back(ex.target);
+    }
+    auto data   = torch::cat(datas, 0).to(device);
+    auto target = torch::cat(targets, 0).to(device).to(torch::kFloat32);
+    return {data, target};
+}
+
+// ------------------------------- Training -------------------------------------
+void train_model(std::shared_ptr<GlareDataset>& dataset,
+                 int epochs,
+                 int batch_size,
+                 float lr,
+                 torch::Device device,
+                 float loss_weight)
 {
-    // Split into train/val
-    size_t n_val = static_cast<size_t>(dataset->size().value() * 0.2);
-    size_t n_train = dataset->size().value() - n_val;
+    // Split indices 80/20
+    const size_t total   = dataset->size().value();
+    const size_t n_val   = static_cast<size_t>(total * 0.2);
+    const size_t n_train = total - n_val;
 
-    auto datasets = dataset->random_split(n_train, n_val);
-    auto train_ds = datasets[0];
-    auto val_ds = datasets[1];
+    std::vector<size_t> all_idx(total);
+    std::iota(all_idx.begin(), all_idx.end(), 0);
 
-    auto train_loader = torch::data::make_data_loader(
-        std::move(train_ds), 
-        torch::data::DataLoaderOptions().batch_size(batch_size).shuffle(true).workers(4)
-    );
-    auto val_loader = torch::data::make_data_loader(
-        std::move(val_ds), 
-        torch::data::DataLoaderOptions().batch_size(batch_size).shuffle(false).workers(4)
-    );
+    std::mt19937 rng(std::random_device{}());
+    std::shuffle(all_idx.begin(), all_idx.end(), rng);
 
-    // Model, loss, optimizer
-    kvald::UNet model;
+    std::vector<size_t> train_idx(all_idx.begin(), all_idx.begin() + n_train);
+    std::vector<size_t> val_idx  (all_idx.begin() + n_train, all_idx.end());
+
+    UNet model;
     model->to(device);
+
     torch::nn::BCELoss criterion;
     torch::optim::Adam optimizer(model->parameters(), torch::optim::AdamOptions(lr));
 
-    for (int epoch = 1; epoch <= epochs; ++epoch)
-    {
-        // --- Training ---
+    for (int epoch = 1; epoch <= epochs; ++epoch) {
+        // -------- Train --------
         model->train();
-        double total_loss = 0.0;
-        double total_iou = 0.0;
-        double total_dice = 0.0;
+        double tot_loss = 0.0, tot_iou = 0.0, tot_dice = 0.0;
+        size_t seen = 0;
 
-        for (torch::data::Example<>& batch : *train_loader)
-        {
-            torch::Tensor frames = batch.data.to(device);
-            torch::Tensor masks = batch.target.to(device).to(torch::kFloat32);
+        std::shuffle(train_idx.begin(), train_idx.end(), rng);
+
+        for (size_t off = 0; off < n_train; off += static_cast<size_t>(batch_size)) {
+            size_t end = std::min(off + static_cast<size_t>(batch_size), n_train);
+            std::vector<size_t> slice(train_idx.begin() + off, train_idx.begin() + end);
+            auto batch = make_batch(*dataset, slice, device);
 
             optimizer.zero_grad();
-            torch::Tensor preds = model->forward(frames);
-            torch::Tensor loss_sup = criterion(preds, masks);
-            torch::Tensor loss_unsup = unsupervised_evaluate(preds, frames);
-            torch::Tensor loss = loss_sup + loss_weight * loss_unsup;
+            auto preds      = model->forward(batch.data);
+            auto loss_sup   = criterion(preds, batch.target);
+            auto loss_unsup = unsupervised_evaluate(preds, batch.data);
+            auto loss       = loss_sup + loss_weight * loss_unsup;
 
             loss.backward();
             optimizer.step();
 
-            total_loss += loss.item<double>() * frames.size(0);
-            total_iou += iou_score(preds, masks).item<double>() * frames.size(0);
-            total_dice += dice_score(preds, masks).item<double>() * frames.size(0);
+            size_t bs = slice.size();
+            seen     += bs;
+            tot_loss += loss.item().toFloat() * bs;
+            tot_iou  += iou_score(preds, batch.target).item().toFloat() * bs;
+            tot_dice += dice_score(preds, batch.target).item().toFloat() * bs;
         }
 
-        size_t n_train_samples = train_loader->dataset().size().value();
-        std::cout << "Epoch " << epoch << "/" << epochs << " [Train] ➤ Loss: " << total_loss / n_train_samples
-                  << ", IoU: " << total_iou / n_train_samples << ", Dice: " << total_dice / n_train_samples << std::endl;
+        std::cout << "Epoch " << epoch << "/" << epochs
+                  << " [Train] ➤ Loss: " << tot_loss / seen
+                  << ", IoU: "  << tot_iou  / seen
+                  << ", Dice: " << tot_dice / seen << '\n';
 
-        // --- Validation ---
+        // -------- Val --------
         model->eval();
-        double val_loss = 0.0;
-        double val_iou = 0.0;
-        double val_dice = 0.0;
+        double v_loss = 0.0, v_iou = 0.0, v_dice = 0.0;
+        size_t vseen = 0;
 
         torch::NoGradGuard no_grad;
-        for (torch::data::Example<>& batch : *val_loader)
-        {
-            torch::Tensor frames = batch.data.to(device);
-            torch::Tensor masks = batch.target.to(device).to(torch::kFloat32);
+        for (size_t off = 0; off < n_val; off += static_cast<size_t>(batch_size)) {
+            size_t end = std::min(off + static_cast<size_t>(batch_size), n_val);
+            std::vector<size_t> slice(val_idx.begin() + off, val_idx.begin() + end);
+            auto batch = make_batch(*dataset, slice, device);
 
-            torch::Tensor preds = model->forward(frames);
-            torch::Tensor loss_sup = criterion(preds, masks);
+            auto preds    = model->forward(batch.data);
+            auto loss_sup = criterion(preds, batch.target);
 
-            val_loss += loss_sup.item<double>() * frames.size(0);
-            val_iou += iou_score((preds > 0.5).to(torch::kInt32), masks.to(torch::kInt32)).item<double>() * frames.size(0);
-            val_dice += dice_score((preds > 0.5).to(torch::kInt32), masks.to(torch::kInt32)).item<double>() * frames.size(0);
+            size_t bs = slice.size();
+            vseen    += bs;
+            v_loss   += loss_sup.item().toFloat() * bs;
+            v_iou    += iou_score((preds > 0.5).to(torch::kInt32),
+                                  batch.target.to(torch::kInt32)).item().toFloat() * bs;
+            v_dice   += dice_score((preds > 0.5).to(torch::kInt32),
+                                   batch.target.to(torch::kInt32)).item().toFloat() * bs;
         }
 
-        size_t n_val_samples = val_loader->dataset().size().value();
-        std::cout << " Val ➤ Loss: " << val_loss / n_val_samples
-                  << ", IoU: " << val_iou / n_val_samples << ", Dice: " << val_dice / n_val_samples << std::endl;
+        std::cout << "        [Val]   ➤ Loss: " << v_loss / vseen
+                  << ", IoU: "  << v_iou  / vseen
+                  << ", Dice: " << v_dice / vseen << '\n';
     }
 
-    // Save checkpoint
     torch::save(model, "kvald_unet.pt");
-    std::cout << "Training complete. Model saved to kvald_unet.pt" << std::endl;
+    std::cout << "Training complete. Model saved to kvald_unet.pt\n";
 }
 
 } // namespace kvald

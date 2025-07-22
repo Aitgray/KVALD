@@ -8,7 +8,7 @@ add_library(kvald
 )
 
 target_include_directories(kvald PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../include ${Eigen_SOURCE_DIR} ${TORCH_INCLUDE_DIRS})
-target_link_libraries(kvald ${TORCH_LIBRARIES} ${OpenCV_LIBS})
+target_link_libraries(kvald PRIVATE Eigen3::Eigen ${TORCH_LIBRARIES} ${OpenCV_LIBS})
 
 add_executable(main main.cpp)
 
