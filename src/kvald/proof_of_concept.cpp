@@ -253,18 +253,16 @@ void video_processing(
     {
         std::cerr << "An unexpected error occurred: " << e.what() << std::endl;
     }
-    finally
+
+    // Clean up
+    stop_reading = true;
+    queue_cond.notify_one(); // Notify reader to unblock if waiting
+    if (reader_thread.joinable())
     {
-        // Clean up
-        stop_reading = true;
-        queue_cond.notify_one(); // Notify reader to unblock if waiting
-        if (reader_thread.joinable())
-        {
-            reader_thread.join();
-        }
-        mask_writer.release();
-        final_writer.release();
+        reader_thread.join();
     }
+    mask_writer.release();
+    final_writer.release();
 
     if (frame_count == 0)
     {

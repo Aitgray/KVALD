@@ -42,11 +42,10 @@ def dice_score(pred, target):
     intersection = (pred * target).sum()
     return (2. * intersection + 1e-6) / (pred.sum() + target.sum() + 1e-6)
 
-def create_dataset(n_videos: int):
-    return GlareDataset(n_videos=n_videos, transform=None)  # replace with your dataset class
+
 
 def train_model(
-    dataset,
+    n_videos: int,
     epochs: int,
     batch_size: int,
     lr: float,
@@ -54,13 +53,12 @@ def train_model(
     loss_weight: float,
     val_split: float = 0.2,
 ):
-    # Split into train/val
-    n_val   = int(len(dataset) * val_split)
-    n_train = len(dataset) - n_val
-    train_ds, val_ds = random_split(dataset, [n_train, n_val])
+    # Create datasets
+    train_ds = GlareDataset(n_videos=int(n_videos * (1 - val_split)))
+    val_ds   = GlareDataset(n_videos=int(n_videos * val_split))
 
-    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True,  num_workers=4)
-    val_loader   = DataLoader(val_ds,   batch_size=batch_size, shuffle=False, num_workers=4)
+    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True,  num_workers=4, pin_memory=True)
+    val_loader   = DataLoader(val_ds,   batch_size=batch_size, shuffle=False, num_workers=4, pin_memory=True)
 
     # Model, loss, optimizer
     model     = UNet(in_channels=1, out_channels=1).to(device)
@@ -134,6 +132,8 @@ def train_model(
 
         print(f" Val -> Loss: {avg_val_loss:.4f}, "
               f"IoU: {avg_val_iou:.4f}, Dice: {avg_val_dice:.4f}")
+        if device == "cuda":
+            torch.cuda.empty_cache()
     
     # Save metrics to CSV
     metrics_path = os.path.join(os.path.dirname(__file__), 'training_metrics.csv')
@@ -207,5 +207,4 @@ if __name__ == "__main__":
     print(f"Using device: {device}")
     loss_weight = config['unsupervised']['loss_weight']
 
-    dataset = create_dataset(n_videos)
-    train_model(dataset, epochs, batch_size, lr, device, loss_weight)
+    train_model(n_videos, epochs, batch_size, lr, device, loss_weight)

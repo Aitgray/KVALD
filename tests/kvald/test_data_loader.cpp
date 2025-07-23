@@ -1,4 +1,5 @@
 #include "kvald/data_loader.h"
+#include "kvald/synthetic_data.h"
 #include <gtest/gtest.h>
 
 TEST(DataLoaderTest, LoadSyntheticData) {
