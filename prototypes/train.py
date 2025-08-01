@@ -57,6 +57,9 @@ def train_model(
     train_ds = GlareDataset(n_videos=int(n_videos * (1 - val_split)))
     val_ds   = GlareDataset(n_videos=int(n_videos * val_split))
 
+    n_train = len(train_ds)
+    n_val = len(val_ds)
+
     train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True,  num_workers=4, pin_memory=True)
     val_loader   = DataLoader(val_ds,   batch_size=batch_size, shuffle=False, num_workers=4, pin_memory=True)
 
