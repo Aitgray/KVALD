@@ -1,4 +1,7 @@
 
+build/
+*.o
+*.so
 .git
 .gitignore
 .gitmodules

@@ -1,0 +1,1 @@
+g++ /app/test_opencv.cpp -o /app/test_opencv -I/usr/include/opencv4 -lopencv_core -lopencv_imgproc -lopencv_highgui -lopencv_videoio

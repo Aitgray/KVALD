@@ -2,7 +2,9 @@
     "train": {
     "learning_rate": 1e-4,
     "num_epochs": 50,
-    "batch_size": 4
+    "batch_size": 4,
+    "n_videos": 500,
+    "device": "cuda"
   },
     "smoothing": {
         "kernel_size": [5, 5],

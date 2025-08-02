@@ -1,14 +1,8 @@
-feat: Convert Python prototypes to C++
+feat: Implement parameter tuning suggestions and update README
 
-This commit initiates the conversion of Python prototype code to C++.
+This commit implements several parameter tuning suggestions:
+- **Increased Model Capacity:** Doubled feature sizes in the U-Net from [32,64,128,256] to [64,128,256,512] in `prototypes/model.py`.
+- **Lowered Learning Rate:** Changed `train.learning_rate` from 1e-3 to 1e-4 in `prototypes/config.json`.
+- **Increased Epochs and Batch Size:** Bumped `train.num_epochs` to 50 and `train.batch_size` to 4 in `prototypes/config.json`.
 
-Key changes include:
-- **Model Conversion:** Transformed `prototypes/model.py` (UNet architecture) into C++ using LibTorch. This involved creating `include/kvald/model.h` and `src/kvald/model.cpp`, and updating CMake configurations to integrate LibTorch and enable CUDA support.
-- **Synthetic Data Generation:** Converted `prototypes/synthetic_data.py` to C++ (`include/kvald/synthetic_data.h` and `src/kvald/synthetic_data.cpp`), using Eigen for numerical operations.
-- **Data Loader:** Implemented `GlareDataset` in C++ (`include/kvald/data_loader.h` and `src/kvald/data_loader.cpp`) using `torch::data::Dataset`.
-- **Training Logic:** Converted `prototypes/train.py` to C++ (`include/kvald/trainer.h` and `src/kvald/trainer.cpp`), including loss functions, metrics, and the training loop.
-- **Proof of Concept:** Converted `prototypes/proof_of_concept.py` to C++ (`include/kvald/proof_of_concept.h` and `src/kvald/proof_of_concept.cpp`), integrating OpenCV for video processing, C++ threading, and the previously converted components.
-- **Build System Updates:** Updated `CMakeLists.txt` files to include LibTorch, OpenCV, nlohmann/json, and cxxopts dependencies.
-- **Main Application Logic:** Modified `src/main.cpp` to handle command-line arguments for training and video processing, and to load configuration from `config.json`.
-
-This completes the core Python to C++ conversion for the provided prototypes.
+Additionally, the `README.md` has been updated to include the training metrics plot.
