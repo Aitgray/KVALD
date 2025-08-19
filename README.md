@@ -1,58 +1,75 @@
-# KVALD - Kalman Vision-based Automated Local Dimming
-I'll use python to prototype the code and C++ for the final production version.
+# KVALD: Kalman Filter for Video Glare Reduction
 
-I want to write a general overview of my current plans for the project.
+KVALD is a real-time video processing application designed to reduce glare and stabilize brightness in video streams. It uses a combination of a deep learning-based mask generator and a differentiable Kalman filter to achieve this.
 
-## Overview
-KVALD is a real time system for detecting and dimming high-intensity reigons in a video stream (e.g., bright headlights at night). It uses a lightweight neural network to generate a dynamic brightness mask, applies a differentiable Kalman-based smoothing filter, and outputs a control mask for localized dimming hardware.
+## Table of Contents
 
-## Building
+- [Project Status](#project-status)
+- [Architecture](#architecture)
+- [Installation](#installation)
+- [Running the Application](#running-the-application)
+- [Next Steps](#next-steps)
 
-To build the C++ code, you will need to have CMake and a C++ compiler installed. You will also need to have the LibTorch library installed.
+## Project Status
 
-Once you have the dependencies installed, you can build the code by running the following commands from the `build` directory:
+This project is currently in the process of being converted from a Python prototype to a production-ready C++ implementation for improved performance.
+
+## Architecture
+
+The core of KVALD consists of the following components:
+
+1.  **Mask Generation Network**: A U-Net based model that generates a probability mask to identify glare hotspots.
+2.  **Differentiable Kalman Filter**: A Kalman filter that uses the generated mask to predict and update the state of the video stream, smoothing out brightness variations.
+3.  **Spatial and Temporal Smoothing**: Additional smoothing algorithms to further improve the quality of the output video.
+
+For a more detailed overview of the architecture, please see the [Architecture.md](docs/Architecture.md) document.
+
+## Installation
+
+To build and run this project, you will need the following dependencies installed:
+
+*   **C++ Compiler**: A modern C++ compiler that supports C++17 (e.g., GCC, Clang, MSVC).
+*   **CMake**: Version 3.15 or higher.
+*   **OpenCV**: Required for video capture and processing.
+*   **LibTorch**: The C++ distribution of PyTorch.
+*   **Eigen**: A C++ template library for linear algebra.
+*   **cxxopts**: A lightweight C++ option parser library.
+
+It is recommended to use a package manager like [vcpkg](https://vcpkg.io/) to install these dependencies.
+
+Once the dependencies are installed, you can build the project using the following commands:
 
 ```bash
-cmake -DTorch_DIR=<path_to_libtorch> ..
+mkdir build
+cd build
+cmake ..
 cmake --build .
 ```
 
-**Note:** You may need to replace `<path_to_libtorch>` with the actual path to your LibTorch installation. If you are still having issues, you may need to set the `CMAKE_MODULE_PATH` or `CMAKE_PREFIX_PATH` variables instead. Please refer to the CMake documentation for more information.
+## Running the Application
 
-## Current Features:
-None
+After building the project, you can run the main application from the `build` directory:
 
-## Planned Features:
-- **Dynamic Input**: Supports USB cameras, network streams, and video files via OpenCV/GStreamer.
-- **Neural Mask Generation**: MobileNet-backed U-Net produces a per-pixel [0,1] dimming mask.
-- **Differentiable Kalman Filter**: Embedded as a trainable module for temporal consistency.
-- **Spatial & Temporal Smoothing**: Bilateral/Gaussian blur plus EMA to reduce flicker.
-- **Feedback Verification**: Optional light-weight verifier network to ensure consistency post-smoothing.
-- **Efficient Inference**: Exportable to ONNX/TensorRT or libtorch C++ for sub-33ms latency.
-- **Benchmarking Suite**: Automated latency and accuracy tests in `/benchmarks`.
+```bash
+./kvald_app
+```
 
-## Repository Structure:
-/
-├─ src/                   # C++ inference & I/O code
-├─ prototypes/            # Python training & prototyping scripts
-│   ├─ proof_of_concept.py # Full proof of concept script
-│   ├─ train.py            # Training script for neural mask generation
-│   ├─ notebooks/            # Jupyter notebooks for visualization
-│   └─ ...                # Other prototyping scripts
-├─ include/               # Public headers
-├─ models/                # Trained network weights (.pt, .onnx)
-├─ data/                  # Sample videos & test inputs
-├─ benchmarks/            # Performance test harnesses
-├─ docs/
-│   ├─ ARCHITECTURE.md    # System design and data flow
-│   └─ ...                # Additional docs
-├─ scripts/               # Data generation & utility scripts
-├─ tests/                 # Unit & integration tests
-├─ CMakeLists.txt         # Build configuration
-├─ Dockerfile             # Reproducible dev environment <- do i need this?
-├─ README.md              # This file
-├─ LICENSE                # None yet, may add in the future
-└─ .github/               # Again, none yet, may add in the future
+### Troubleshooting
 
-## Training Progress
-![Training Metrics Plot](prototypes/training_metrics_plot.png)
+When running the application, you may encounter errors related to missing DLLs, such as:
+
+*   `c10.dll was not found`
+*   `torch_cuda.dll was not found`
+*   `torch_cpu.dll was not found`
+
+These files are part of the LibTorch library. To resolve this, you need to ensure that the directory containing these DLLs is in your system's `PATH` environment variable. For example, if you installed LibTorch to `C:\libtorch`, you would add `C:\libtorch\lib` to your `PATH`.
+
+## Next Steps
+
+The following are the immediate next steps for this project:
+
+1. **Executable Error**: Running the executable currently returns the error: "Could not open config.json at prototypes/config.json.
+2.  **Fix Eigen Include Path**: Resolve the Eigen include path issue in the `CMakeLists.txt` to allow the Kalman Filter to compile and its tests to run.
+3.  **Complete Kalman Filter Tests**: Finish and verify the unit tests for the C++ Kalman Filter.
+4.  **Translate `model.py`**: Convert the `model.py` to C++, which orchestrates the Kalman Filter.
+6.  **Implement Pipeline Verification Test**: Create a test to ensure the C++ implementation is a faithful translation of the Python prototype.
