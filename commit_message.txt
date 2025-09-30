@@ -1,8 +1,3 @@
-feat: Implement parameter tuning suggestions and update README
+feat: Revert Dockerfile and simplify CMakeLists for compilation
 
-This commit implements several parameter tuning suggestions:
-- **Increased Model Capacity:** Doubled feature sizes in the U-Net from [32,64,128,256] to [64,128,256,512] in `prototypes/model.py`.
-- **Lowered Learning Rate:** Changed `train.learning_rate` from 1e-3 to 1e-4 in `prototypes/config.json`.
-- **Increased Epochs and Batch Size:** Bumped `train.num_epochs` to 50 and `train.batch_size` to 4 in `prototypes/config.json`.
-
-Additionally, the `README.md` has been updated to include the training metrics plot.
+Reverted Dockerfile to use the original pytorch/pytorch:2.3.1-cuda12.1-cudnn8-devel base image, removing problematic OpenCV source build steps. Simplified CMakeLists.txt to rely on find_package for all libraries, with explicit paths for OpenCV, NetCDF, and TIFF. Updated compile.sh to use python3 and removed LD_LIBRARY_PATH export. Also fixed undefined variables in prototypes/train.py and added OpenCV test files.
