@@ -47,3 +47,6 @@ prototypes/training_metrics.csv
 
 # IDE-specific configurations
 .vscode/
+
+# Data files
+data/
