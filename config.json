@@ -1,43 +1,65 @@
 {
-    "train": {
-        "learning_rate": 1e-4,
-        "num_epochs": 50,
-        "batch_size": 4,
-        "n_videos": 500,
-        "device": "cuda"
+  "train": {
+    "learning_rate": 1e-4,
+    "num_epochs": 1,
+    "batch_size": 4,
+    "n_videos": 500,
+    "device": "cuda"
+  },
+  "data": {
+    "source": "glare_synth_online",
+
+    "sequence_len": 16,
+    "manifest_path": "C:/Users/aidan/Desktop/Projects/KVALD/bdd100k_manifest.json",
+    "split": 0.1,
+
+    "glare": {
+      "enabled": true,
+      "k_range": [0.5, 1.0],
+      "mode_weights": {
+        "hotspot": 0.15,
+        "multi-hotspot": 0.15,
+        "traveling": 0.15,
+        "streak": 0.15,
+        "bloom": 0.15,
+        "flicker": 0.15,
+        "none": 0.1
+      },
+      "threshold": 0.2
     },
-    "data": {
-        "source": "bdd100k",
-        "sequence_len": 16,
-        "manifest_path": "C:/Users/aidan/Desktop/Projects/KVALD/prototypes/dummy_manifest.json",
-        "glare": {
-            "enabled": true,
-            "k_range": [0.5, 1.0],
-            "mode_weights": {
-                "hotspot": 0.15,
-                "multi-hotspot": 0.15,
-                "traveling": 0.15,
-                "streak": 0.15,
-                "bloom": 0.15,
-                "flicker": 0.15,
-                "none": 0.1
-            },
-            "threshold": 0.2
-        }
-    },
-    "smoothing": {
-        "kernel_size": [5, 5],
-        "sigma": 1.0
-    },
-    "kalman_filter": {
-        "Q": 1e-5,
-        "R": 1e-2
-    },
-    "unsupervised": {
-        "loss_weight": 0.2
-    },
-    "verification": {
-        "iou_threshold": 0.8,
-        "dice_threshold": 0.8
+
+    "synth": {
+      "base_seed": 1337,
+      "severity_range": [1, 4],
+      "alpha_range": [0.25, 0.95],
+      "n_spots": [1, 3],
+      "n_streaks": [6, 12],
+      "streak_decay": 2.25,
+      "mask_threshold": 0.15,
+      "grayscale": true,
+      "color_jitter_prob": 0.15,
+      "refine_dir": null,
+      "fraction": 1.0,
+
+      "sprite_dir": "C:/Users/aidan/Desktop/Projects/Flare7Kpp/Flare-R/sprites",
+      "sprite_prob": 0.5
     }
+  },
+  "smoothing": {
+    "kernel_size": [5, 5],
+    "sigma": 1.0
+  },
+  "kalman_filter": {
+    "Q": 1e-5,
+    "R": 1e-2
+  },
+  "unsupervised": {
+    "loss_weight": 0.0
+  },
+  "verification": {
+    "iou_threshold": 0.8,
+    "dice_threshold": 0.8,
+    "iou_fp_bias": 1.0,
+    "iou_fn_bias": 1.0
+  }
 }

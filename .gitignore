@@ -50,3 +50,8 @@ prototypes/training_metrics.csv
 
 # Data files
 data/
+
+# Manifest, verify, venv
+.venv/
+bdd100k_manifest.json
+verify_out/

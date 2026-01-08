@@ -1,5 +1,10 @@
 
 import torch
+import sys
+
+# Python environment details
+print(f"Python version: {sys.version}")
+print(f"Env: {sys.prefix}")
 
 print(f"PyTorch version: {torch.__version__}")
 print(f"CUDA version: {torch.version.cuda}")
